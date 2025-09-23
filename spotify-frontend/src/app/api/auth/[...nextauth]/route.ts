@@ -8,6 +8,8 @@ const spotifyScopes = [
   "user-top-read",
   "user-read-recently-played",
   "user-library-read",
+  "playlist-modify-public",
+  "playlist-modify-private"
 ].join(" ");
 
 async function refreshAccessToken(token: JWT): Promise<JWT> {

@@ -23,7 +23,7 @@ exports.createPlaylist = async (req, res) => {
         }
         
         const playlistName = `My Top Tracks ${date} (${titleRangeText})`;
-        const description = `Your favorite tracks ${descriptionRangeText}. Created by TuneFinder.`;
+        const description = `Your favorite tracks ${descriptionRangeText}. Created by SoundSphere.`;
 
         const { data: newPlaylist } = await axios.post(
             `https://api.spotify.com/v1/users/${userId}/playlists`,
