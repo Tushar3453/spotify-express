@@ -11,7 +11,7 @@ exports.searchTracks = async (req, res) => {
         const { data: spotifyResponse } = await axios.get(searchUrl, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
-        const items = spotifyResponse.tracks.items.map(formatSongData).filter(Boolean);
+        const items = spotifyResponse.tracks.items.map(formatSongData).filter(Boolean); // .filter removes any invalid or null results
         res.status(200).json(items);
     } catch (error) {
         console.error('Error in /api/search:', error.message);
@@ -34,27 +34,16 @@ exports.getRecommendations = async (req, res) => {
         const lastFmUrl = `https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist=${encodeURIComponent(primaryArtist)}&track=${encodeURIComponent(trackName)}&limit=50&api_key=${process.env.LASTFM_API_KEY}&format=json`;
         try {
             const { data: fmData } = await axios.get(lastFmUrl);
-            if (fmData.similartracks?.track?.length > 0) {
+            // ?. avoids runtime errors if anything is missing
+            if (fmData.similartracks?.track?.length > 0) { 
                 songQueries = fmData.similartracks.track.map(t => ({ songName: t.name, artistName: t.artist.name }));
             }
         } catch (fmError) { console.log("Last.fm request failed. Using fallback."); }
-        
-        const spotifyAccessToken = await getSpotifyToken();
-        const authHeader = { Authorization: `Bearer ${spotifyAccessToken}` };
-        
-        // Plan B: Spotify Genre Fallback
-        if (songQueries.length === 0) {
-            const { data: artistData } = await axios.get(`https://api.spotify.com/v1/artists/${artistId}`, { headers: authHeader });
-            if (artistData.genres?.length > 0) {
-                const genre = artistData.genres[0];
-                const year = parseInt(releaseYear);
-                const query = `genre:"${genre}" year:${year-7}-${new Date().getFullYear()}`;
-                const { data: searchData } = await axios.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=50`, { headers: authHeader });
-                songQueries = searchData.tracks.items.map(t => ({ songName: t.name, artistName: t.artists[0].name }));
-            }
-        }
 
         if (songQueries.length === 0) return res.status(200).json([]);
+        
+        const spotifyAccessToken = await getSpotifyToken();
+        const authHeader = { Authorization: `Bearer ${spotifyAccessToken}` }; 
 
         const promises = songQueries.map(q => 
             axios.get(`https://api.spotify.com/v1/search?q=${encodeURIComponent(`track:"${q.songName}" artist:"${q.artistName}"`)}&type=track&limit=1`, { headers: authHeader })

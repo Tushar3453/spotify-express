@@ -24,8 +24,8 @@ const getSpotifyToken = async () => {
         console.log("Successfully fetched new server token!");
         return spotifyToken;
     } catch (error) {
-        console.error('Spotify token fetch karne mein error:', error.response ? error.response.data : error.message);
-        throw new Error('Spotify se authenticate nahi ho paaya.');
+        console.error('Error during token fetching: ', error.response ? error.response.data : error.message);
+        throw new Error('Unable to authenticate with Spotify.');
     }
 };
 
