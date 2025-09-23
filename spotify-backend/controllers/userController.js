@@ -17,7 +17,7 @@ exports.getTopArtists = async (req, res) => {
         res.status(200).json(artists);
     } catch (error) {
         console.error("Error in /top-artists:", error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Top artists fetch karte waqt error aa gaya.' });
+        res.status(500).json({ error: 'Error occured while fetching top artists.' });
     }
 };
 
@@ -42,7 +42,7 @@ exports.getTopGenres = async (req, res) => {
         res.status(200).json(sortedGenres);
     } catch (error) {
         console.error("Error in /top-genres:", error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Top genres fetch karte waqt error aa gaya.' });
+        res.status(500).json({ error: 'Error occured while fetching top genres.' });
     }
 };
 
@@ -64,7 +64,7 @@ exports.getTopTracks = async (req, res) => {
         res.status(200).json(tracks);
     } catch (error) {
         console.error("Error in /top-tracks:", error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Top tracks fetch karte waqt error aa gaya.' });
+        res.status(500).json({ error: 'Error occured while fetching top tracks.' });
     }
 };
 

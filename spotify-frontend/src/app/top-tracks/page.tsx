@@ -47,7 +47,7 @@ export default function TopTracksPage() {
             })
             .then(data => {
                 setTracks(data);
-                // Step 3: On a successful fetch, update the ref with the current range
+                // On a successful fetch, update the ref with the current range
                 fetchedRangeRef.current = activeRange;
             })
             .catch(error => {
@@ -98,7 +98,7 @@ export default function TopTracksPage() {
     const TimeRangeButton = ({ range, label }: { range: TimeRange; label: string }) => (
         <button
             onClick={() => {
-                // Step 4: When a new button is clicked, update the state, which will trigger the useEffect
+                // When a new button is clicked, update the state, which will trigger the useEffect
                 if (activeRange !== range) {
                     setActiveRange(range);
                 }

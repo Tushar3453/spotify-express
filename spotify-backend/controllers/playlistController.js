@@ -44,7 +44,7 @@ exports.createPlaylist = async (req, res) => {
         });
     } catch (error) {
         console.error("Error in /create-playlist:", error.response ? error.response.data : error.message);
-        res.status(500).json({ error: 'Error occured during creating playlist' });
+        res.status(500).json({ error: 'Error occured during playlist creation' });
     }
 };
 
