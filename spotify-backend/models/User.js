@@ -4,7 +4,7 @@ const UserSchema = new mongoose.Schema({
   spotifyId: {
     type: String,
     required: true,
-    unique: true, // Spotify ke user ka unique ID
+    unique: true, 
   },
   displayName: {
     type: String,
@@ -14,13 +14,13 @@ const UserSchema = new mongoose.Schema({
     lowercase: true,
   },
   profileImage: {
-    type: String, // Spotify profile picture URL
+    type: String, 
   },
   country: {
     type: String,
   },
   product: {
-    type: String, // "premium" ya "free"
+    type: String, 
   },
   accessToken: {
     type: String,

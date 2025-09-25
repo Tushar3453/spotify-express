@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 const TrackSchema = new mongoose.Schema({
   trackId: {
     type: String,
-    required: true, // Spotify track ID
+    required: true, 
   },
   name: {
     type: String,
