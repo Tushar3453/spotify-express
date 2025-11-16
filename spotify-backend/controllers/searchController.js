@@ -3,7 +3,7 @@ const { getSpotifyToken, formatSongData, shuffleArray } = require('../utils/spot
 
 exports.searchTracks = async (req, res) => {
     const { q: query } = req.query;
-    if (!query) return res.status(400).json({ error: 'query parameter is required.' });
+    if (!query) return res.status(400).json({ error: 'query parameter is required.' }); //updated .searchTracks and query.
 
     try {
         const token = await getSpotifyToken();
