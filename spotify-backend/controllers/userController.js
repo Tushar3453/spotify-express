@@ -50,10 +50,10 @@ exports.getTopGenres = async (req, res) => {
 exports.getTopTracks = async (req, res) => {
     const userAccessToken = req.userToken;
     const { time_range = 'medium_term' } = req.query;
+    const redisClient = req.redisClient; 
 
     let userId;
     try {
-        //fetching user id
         const { data: userProfile } = await axios.get('https://api.spotify.com/v1/me', {
             headers: { 'Authorization': `Bearer ${userAccessToken}` }
         });
@@ -64,8 +64,20 @@ exports.getTopTracks = async (req, res) => {
         return res.status(500).json({ error: 'Failed to get user profile.' });
     }
 
+    const cacheKey = `user:${userId}:top-tracks:${time_range}`;
+
     try {
-        // fetching old tracks to compare
+        // check in redis
+        const cachedData = await redisClient.get(cacheKey);
+        if (cachedData) {
+            // (CACHE HIT) - Data found
+            console.log('CACHE HIT:', cacheKey);
+            return res.status(200).json(JSON.parse(cachedData));
+        }
+
+        // (CACHE MISS) - Data not found
+        console.log('CACHE MISS:', cacheKey);
+        
         const oldData = await UserTopTracks.findOne({ userId: userId, timeRange: time_range });
         
         const oldTracksMap = new Map();
@@ -99,6 +111,9 @@ exports.getTopTracks = async (req, res) => {
                 rankChange: rankChange,
             };
         });
+
+        await redisClient.setEx(cacheKey, 3600, JSON.stringify(newTracks));
+        console.log('CACHE SET:', cacheKey);
 
         res.status(200).json(newTracks);
 

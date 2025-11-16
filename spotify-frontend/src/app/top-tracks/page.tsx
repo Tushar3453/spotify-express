@@ -11,6 +11,7 @@ interface Track {
     artist: string;
     albumArt: string;
     spotifyUrl: string;
+    rankChange: 'up' | 'down' | 'same' | 'new';
 }
 
 type TimeRange = 'short_term' | 'medium_term' | 'long_term';
@@ -22,42 +23,42 @@ export default function TopTracksPage() {
     const [activeRange, setActiveRange] = useState<TimeRange>('short_term');
     const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
     const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
-    
+
     const fetchedRangeRef = useRef<TimeRange | null>(null);
 
     useEffect(() => {
         if (status === 'authenticated' && session?.accessToken) {
-            
+
             if (fetchedRangeRef.current === activeRange) {
                 setIsLoading(false);
-                return; 
+                return;
             }
 
             setIsLoading(true);
             setPlaylistUrl(null);
-            
+
             fetch(`http://127.0.0.1:8000/api/top-tracks?time_range=${activeRange}`, {
                 headers: {
                     'Authorization': `Bearer ${session.accessToken}`
                 }
             })
-            .then(res => {
-                if (!res.ok) throw new Error("Failed to fetch top tracks");
-                return res.json();
-            })
-            .then(data => {
-                setTracks(data);
-                // On a successful fetch, update the ref with the current range
-                fetchedRangeRef.current = activeRange;
-            })
-            .catch(error => {
-                console.error("Error fetching top tracks:", error);
-                // On error, reset the ref so we can try this range again later
-                fetchedRangeRef.current = null;
-            })
-            .finally(() => {
-                setIsLoading(false);
-            });
+                .then(res => {
+                    if (!res.ok) throw new Error("Failed to fetch top tracks");
+                    return res.json();
+                })
+                .then(data => {
+                    setTracks(data);
+                    // On a successful fetch, update the ref with the current range
+                    fetchedRangeRef.current = activeRange;
+                })
+                .catch(error => {
+                    console.error("Error fetching top tracks:", error);
+                    // On error, reset the ref so we can try this range again later
+                    fetchedRangeRef.current = null;
+                })
+                .finally(() => {
+                    setIsLoading(false);
+                });
         } else if (status === 'unauthenticated') {
             setIsLoading(false);
         }
@@ -104,8 +105,8 @@ export default function TopTracksPage() {
                 }
             }}
             className={`px-4 py-2 text-sm font-semibold rounded-full transition-colors ${activeRange === range
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                ? 'bg-green-500 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
         >
             {label}
@@ -165,6 +166,12 @@ export default function TopTracksPage() {
                         <div className="space-y-2">
                             {tracks.map((track) => (
                                 <div key={track.id} className="flex items-center p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
+                                    <div className="w-8 text-center text-lg">
+                                        {track.rankChange === 'up' && <span className="text-green-500">↑</span>}
+                                        {track.rankChange === 'down' && <span className="text-red-500">↓</span>}
+                                        {track.rankChange === 'same' && <span className="text-gray-500">●</span>}
+                                        {track.rankChange === 'new' && <span className="text-blue-500">★</span>}
+                                    </div>
                                     <span className="text-lg font-bold text-gray-400 w-8 text-center">{track.rank}</span>
                                     <Image src={track.albumArt} alt={`${track.name} art`} width={48} height={48} className="w-12 h-12 rounded-md mx-4 object-cover" />
                                     <div className="flex-grow">
