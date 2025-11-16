@@ -30,7 +30,6 @@ exports.getRecommendations = async (req, res) => {
         let songQueries = [];
         const primaryArtist = artistName.split(',')[0].trim();
 
-        // Plan A: Last.fm
         const lastFmUrl = `https://ws.audioscrobbler.com/2.0/?method=track.getsimilar&artist=${encodeURIComponent(primaryArtist)}&track=${encodeURIComponent(trackName)}&limit=50&api_key=${process.env.LASTFM_API_KEY}&format=json`;
         try {
             const { data: fmData } = await axios.get(lastFmUrl);
@@ -38,7 +37,7 @@ exports.getRecommendations = async (req, res) => {
             if (fmData.similartracks?.track?.length > 0) { 
                 songQueries = fmData.similartracks.track.map(t => ({ songName: t.name, artistName: t.artist.name }));
             }
-        } catch (fmError) { console.log("Last.fm request failed. Using fallback."); }
+        } catch (fmError) { console.log("Last.fm request failed."); }
 
         if (songQueries.length === 0) return res.status(200).json([]);
         

@@ -1,4 +1,5 @@
 const axios = require('axios');
+const UserTopTracks = require('../models/UserTopTracks');
 
 exports.getTopArtists = async (req, res) => {
     const userAccessToken = req.userToken;
@@ -50,22 +51,59 @@ exports.getTopTracks = async (req, res) => {
     const userAccessToken = req.userToken;
     const { time_range = 'medium_term' } = req.query;
 
+    let userId;
     try {
+        //fetching user id
+        const { data: userProfile } = await axios.get('https://api.spotify.com/v1/me', {
+            headers: { 'Authorization': `Bearer ${userAccessToken}` }
+        });
+        userId = userProfile.id;
+
+    } catch (e) {
+        console.error("Error fetching user profile:", e.message);
+        return res.status(500).json({ error: 'Failed to get user profile.' });
+    }
+
+    try {
+        // fetching old tracks to compare
+        const oldData = await UserTopTracks.findOne({ userId: userId, timeRange: time_range });
+        
+        const oldTracksMap = new Map();
+        if (oldData) {
+            oldData.tracks.forEach(track => {
+                oldTracksMap.set(track.trackId, track.rank);
+            });
+        }
+
         const url = `https://api.spotify.com/v1/me/top/tracks?time_range=${time_range}&limit=50`;
         const { data } = await axios.get(url, { headers: { 'Authorization': `Bearer ${userAccessToken}` } });
-        const tracks = data.items.map((item, i) => ({
-            rank: i + 1,
-            id: item.id,
-            name: item.name,
-            artist: item.artists.map((a) => a.name).join(', '),
-            albumArt: item.album.images[0]?.url,
-            spotifyUrl: item.external_urls.spotify,
-        }));
-        res.status(200).json(tracks);
+
+        const newTracks = data.items.map((item, i) => {
+            const newRank = i + 1;
+            const oldRank = oldTracksMap.get(item.id);
+            let rankChange = 'new'; 
+
+            if (oldRank) {
+                if (newRank < oldRank) rankChange = 'up';
+                else if (newRank > oldRank) rankChange = 'down';
+                else rankChange = 'same';
+            }
+
+            return {
+                rank: newRank,
+                id: item.id,
+                name: item.name,
+                artist: item.artists.map((a) => a.name).join(', '),
+                albumArt: item.album.images[0]?.url,
+                spotifyUrl: item.external_urls.spotify,
+                rankChange: rankChange,
+            };
+        });
+
+        res.status(200).json(newTracks);
+
     } catch (error) {
         console.error("Error in /top-tracks:", error.response ? error.response.data : error.message);
         res.status(500).json({ error: 'Error occured while fetching top tracks.' });
     }
 };
-
-

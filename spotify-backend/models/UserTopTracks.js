@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+const mongoose = require("mongoose");
 
 const TrackSchema = new mongoose.Schema({
   trackId: {
@@ -9,23 +9,15 @@ const TrackSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  artists: [
-    {
-      id: String,
-      name: String,
-    },
-  ],
-  album: {
-    id: String,
-    name: String,
-    imageUrl: String,
+  rank: { 
+    type: Number, 
+    required: true 
   },
-  previewUrl: String,
-  durationMs: Number,
-  popularity: Number,
-  addedAt: {
-    type: Date,
-    default: Date.now,
+  artist: { 
+    type: String,
+  },
+  albumArt: { 
+    type: String,
   },
 });
 
@@ -33,15 +25,20 @@ const UserTopTracksSchema = new mongoose.Schema({
   userId: {
     type: String, // Spotify user ID
     required: true,
-    unique: true,
   },
-  tracks: [TrackSchema], // array of tracks
+  timeRange: {
+    type: String,
+    required: true,
+    enum: ['short_term', 'medium_term', 'long_term'],
+  },
+  tracks: [TrackSchema], // array of simple tracks
   lastUpdated: {
     type: Date,
     default: Date.now,
   },
 });
 
-const UserTopTracks = mongoose.model("UserTopTracks", UserTopTracksSchema);
+UserTopTracksSchema.index({ userId: 1, timeRange: 1 }, { unique: true });
 
-export default UserTopTracks;
+const UserTopTracks = mongoose.model("UserTopTracks", UserTopTracksSchema);
+module.exports = UserTopTracks;
