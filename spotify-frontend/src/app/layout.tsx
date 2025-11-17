@@ -3,6 +3,8 @@ import "./globals.css";
 import { NextAuthProvider } from "./providers";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+// Import component
+import PlaylistNotification from "@/components/PlaylistNotification"; 
 
 export const metadata: Metadata = {
   title: "SoundSphere",
@@ -19,6 +21,10 @@ export default function RootLayout({
       <body className="bg-gray-900 flex flex-col min-h-full text-white">
         <NextAuthProvider>
           <Navbar />
+          
+          {/* Global Notification Listener */}
+          <PlaylistNotification />
+
           <main className="flex-grow pt-16">
             {children}
           </main>

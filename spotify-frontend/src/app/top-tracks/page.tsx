@@ -67,10 +67,9 @@ export default function TopTracksPage() {
     const handleCreatePlaylist = async () => {
         if (tracks.length === 0 || !session?.accessToken) return;
         setIsCreatingPlaylist(true);
-        setPlaylistUrl(null);
 
         try {
-            const response = await fetch('http://127.0.0.1:8000/api/create-playlist', {
+            fetch('http://127.0.0.1:8000/api/create-playlist', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -80,18 +79,12 @@ export default function TopTracksPage() {
                     tracks: tracks,
                     timeRange: activeRange
                 }),
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to create playlist');
-            }
-
-            const data = await response.json();
-            setPlaylistUrl(data.playlistUrl);
+            }).catch(err => console.error("Background process error:", err));
+            
+            setTimeout(() => setIsCreatingPlaylist(false), 1000); 
 
         } catch (error) {
-            console.error("Error creating playlist:", error);
-        } finally {
+            console.error("Error initiating playlist:", error);
             setIsCreatingPlaylist(false);
         }
     };
