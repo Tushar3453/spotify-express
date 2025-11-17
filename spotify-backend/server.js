@@ -8,24 +8,39 @@ const spotifyRoutes = require('./routes/spotifyRoutes');
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-const allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000'];
+// Allowed origins list
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+];
 
+// CORS configuration
 const corsOptions = {
     origin(origin, callback) {
         if (!origin || allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-        return callback(new Error('Not allowed by CORS'));
+        callback(new Error('Not allowed by CORS'));
     },
+    credentials: true,
     optionsSuccessStatus: 200
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 
-const redisClient = createClient();
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
+// Redis client setup
+const redisClient = createClient({
+    socket: {
+        reconnectStrategy: retries => Math.min(retries * 50, 2000)
+    }
+});
 
+redisClient.on('error', (err) =>
+    console.log(' Redis Client Error:', err)
+);
+
+// Attach redis to req
 app.use((req, res, next) => {
     req.redisClient = redisClient;
     next();
@@ -35,21 +50,22 @@ app.use('/api', spotifyRoutes);
 
 const startServer = async () => {
     try {
-        const mongoConnection = mongoose.connect(process.env.MONGO_URI, {
-            dbName: 'spotify_app'
-        });
-        const redisConnection = redisClient.connect();
+        await Promise.all([
+            mongoose.connect(process.env.MONGO_URI, {
+                dbName: 'spotify_app'
+            }),
+            redisClient.connect()
+        ]);
 
-        await Promise.all([mongoConnection, redisConnection]);
-
-        console.log('MongoDB connected successfully.');
-        console.log('Redis connected successfully.');
+        console.log('✅ MongoDB connected');
+        console.log('✅ Redis connected');
 
         app.listen(PORT, () => {
-            console.log(`Backend server is running on http://localhost:${PORT}`);
+            console.log(` Server running at http://localhost:${PORT}`);
         });
+
     } catch (err) {
-        console.error('Failed to connect to one or more services:', err);
+        console.error(' Service startup failed:', err);
         process.exit(1);
     }
 };
