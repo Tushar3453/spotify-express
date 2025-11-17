@@ -3,6 +3,8 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const { createClient } = require('redis');
+const http = require('http');
+const { Server } = require('socket.io');
 const spotifyRoutes = require('./routes/spotifyRoutes');
 
 const app = express();
@@ -28,6 +30,25 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// http and Socket.io setup
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
+
+io.on('connection', (socket) => {
+    console.log('🔌 Socket connected:', socket.id);
+});
+
+app.use((req, res, next) => {
+    req.io = io;
+    next();
+});
 
 // Redis client setup
 const redisClient = createClient({
@@ -60,8 +81,8 @@ const startServer = async () => {
         console.log('✅ MongoDB connected');
         console.log('✅ Redis connected');
 
-        app.listen(PORT, () => {
-            console.log(` Server running at http://localhost:${PORT}`);
+        server.listen(PORT, () => {
+            console.log(` Server running with WebSockets at http://localhost:${PORT}`);
         });
 
     } catch (err) {

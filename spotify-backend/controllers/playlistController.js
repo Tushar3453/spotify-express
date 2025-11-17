@@ -10,13 +10,13 @@ exports.createPlaylist = async (req, res) => {
     }
 
     try {
-        // fetching user id
+        // 1. Fetching user id (Fixed URL)
         const { data: userProfile } = await axios.get('https://api.spotify.com/v1/me', {
             headers: { 'Authorization': `Bearer ${userAccessToken}` }
         });
         const userId = userProfile.id;
 
-        // updating tracks in database
+        // 2. Updating tracks in database
         try {
             await UserTopTracks.findOneAndUpdate(
                 { userId: userId, timeRange: timeRange }, 
@@ -49,18 +49,29 @@ exports.createPlaylist = async (req, res) => {
         const playlistName = `My Top Tracks ${date} (${titleRangeText})`;
         const description = `Your favorite tracks ${descriptionRangeText}. Created by SoundSphere.`;
 
+        // 3. Create Playlist on Spotify 
         const { data: newPlaylist } = await axios.post(
             `https://api.spotify.com/v1/users/${userId}/playlists`,
             { name: playlistName, description, public: false },
             { headers: { 'Authorization': `Bearer ${userAccessToken}` } }
         );
 
+        // 4. Add Tracks to Playlist 
         const trackUris = tracks.map(track => `spotify:track:${track.id}`);
         await axios.post(
             `https://api.spotify.com/v1/playlists/${newPlaylist.id}/tracks`,
             { uris: trackUris },
             { headers: { 'Authorization': `Bearer ${userAccessToken}` } }
         );
+
+        //WEB SOCKET
+        if (req.io) {
+            req.io.emit('playlist_created', {
+                message: ` New Playlist Created: "${playlistName}"`,
+                link: newPlaylist.external_urls.spotify
+            });
+            console.log("Socket event 'playlist_created' emitted to all clients.");
+        }
 
         res.status(201).json({
             message: "Playlist created successfully!",
