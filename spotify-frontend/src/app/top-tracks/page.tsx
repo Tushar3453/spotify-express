@@ -14,30 +14,57 @@ interface Track {
     rankChange: 'up' | 'down' | 'same' | 'new';
 }
 
+interface HistoryItem {
+    _id: string;
+    lastUpdated: string;
+}
+
 type TimeRange = 'short_term' | 'medium_term' | 'long_term';
 
 export default function TopTracksPage() {
     const { data: session, status } = useSession();
     const [tracks, setTracks] = useState<Track[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    
     const [activeRange, setActiveRange] = useState<TimeRange>('short_term');
+    
+    const [historyDates, setHistoryDates] = useState<HistoryItem[]>([]);
+    const [selectedHistoryId, setSelectedHistoryId] = useState<string>(''); // Empty string means "current"
+    
     const [isCreatingPlaylist, setIsCreatingPlaylist] = useState(false);
     const [playlistUrl, setPlaylistUrl] = useState<string | null>(null);
 
-    const fetchedRangeRef = useRef<TimeRange | null>(null);
-
+    // 1. Fetch History Dates whenever Active Range changes
     useEffect(() => {
         if (status === 'authenticated' && session?.accessToken) {
+            // Reset selection to "Current" when range changes
+            setSelectedHistoryId(''); 
+            
+            fetch(`http://127.0.0.1:8000/api/top-tracks/history-dates?time_range=${activeRange}`, {
+                headers: { 'Authorization': `Bearer ${session.accessToken}` }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(Array.isArray(data)) setHistoryDates(data);
+            })
+            .catch(err => console.error("Error fetching history dates:", err));
+        }
+    }, [activeRange, status, session]);
 
-            if (fetchedRangeRef.current === activeRange) {
-                setIsLoading(false);
-                return;
-            }
 
+    // 2. Main Track Fetcher
+    useEffect(() => {
+        if (status === 'authenticated' && session?.accessToken) {
             setIsLoading(true);
             setPlaylistUrl(null);
 
-            fetch(`http://127.0.0.1:8000/api/top-tracks?time_range=${activeRange}`, {
+            // Logic: Agar historyId selected hai, toh wo bhejo API ko
+            let url = `http://127.0.0.1:8000/api/top-tracks?time_range=${activeRange}`;
+            if (selectedHistoryId) {
+                url += `&historyId=${selectedHistoryId}`;
+            }
+
+            fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${session.accessToken}`
                 }
@@ -48,13 +75,9 @@ export default function TopTracksPage() {
                 })
                 .then(data => {
                     setTracks(data);
-                    // On a successful fetch, update the ref with the current range
-                    fetchedRangeRef.current = activeRange;
                 })
                 .catch(error => {
                     console.error("Error fetching top tracks:", error);
-                    // On error, reset the ref so we can try this range again later
-                    fetchedRangeRef.current = null;
                 })
                 .finally(() => {
                     setIsLoading(false);
@@ -62,14 +85,15 @@ export default function TopTracksPage() {
         } else if (status === 'unauthenticated') {
             setIsLoading(false);
         }
-    }, [activeRange, status, session]);
+    }, [activeRange, selectedHistoryId, status, session]);
+
 
     const handleCreatePlaylist = async () => {
         if (tracks.length === 0 || !session?.accessToken) return;
         setIsCreatingPlaylist(true);
 
         try {
-            fetch('http://127.0.0.1:8000/api/create-playlist', {
+            await fetch('http://127.0.0.1:8000/api/create-playlist', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -79,8 +103,16 @@ export default function TopTracksPage() {
                     tracks: tracks,
                     timeRange: activeRange
                 }),
-            }).catch(err => console.error("Background process error:", err));
+            });
             
+            fetch(`http://127.0.0.1:8000/api/top-tracks/history-dates?time_range=${activeRange}`, {
+                headers: { 'Authorization': `Bearer ${session.accessToken}` }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(Array.isArray(data)) setHistoryDates(data);
+            });
+
             setTimeout(() => setIsCreatingPlaylist(false), 1000); 
 
         } catch (error) {
@@ -92,7 +124,6 @@ export default function TopTracksPage() {
     const TimeRangeButton = ({ range, label }: { range: TimeRange; label: string }) => (
         <button
             onClick={() => {
-                // When a new button is clicked, update the state, which will trigger the useEffect
                 if (activeRange !== range) {
                     setActiveRange(range);
                 }
@@ -130,19 +161,52 @@ export default function TopTracksPage() {
                     <p className="text-gray-400 mt-2">The songs you've had on repeat.</p>
                 </header>
 
-                <div className="flex flex-col sm:flex-row justify-center items-center gap-4 mb-8">
-                    <div className="flex justify-center items-center gap-4">
+                {/* Controls Section */}
+                <div className="flex flex-col gap-6 mb-8">
+                    
+                    {/* 1. Time Range Buttons */}
+                    <div className="flex justify-center items-center gap-4 flex-wrap">
                         <TimeRangeButton range="short_term" label="Last 4 Weeks" />
                         <TimeRangeButton range="medium_term" label="Last 6 Months" />
                         <TimeRangeButton range="long_term" label="All Time" />
                     </div>
-                    <button
-                        onClick={handleCreatePlaylist}
-                        disabled={isCreatingPlaylist || tracks.length === 0}
-                        className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-full transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    >
-                        {isCreatingPlaylist ? 'Creating...' : 'Create Playlist'}
-                    </button>
+
+                    {/* 2. Actions Row: Dropdown & Create Button */}
+                    <div className="flex flex-col sm:flex-row justify-center items-center gap-4">
+                        
+                        {/* History Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={selectedHistoryId}
+                                onChange={(e) => setSelectedHistoryId(e.target.value)}
+                                className="appearance-none bg-gray-800 text-white border border-gray-600 hover:border-gray-500 px-4 py-2 pr-8 rounded-full focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer text-sm"
+                            >
+                                <option value="">Current Top Tracks</option>
+                                {historyDates.map((item) => (
+                                    <option key={item._id} value={item._id}>
+                                        History: {new Date(item.lastUpdated).toLocaleDateString()} {new Date(item.lastUpdated).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </option>
+                                ))}
+                            </select>
+                            {/* Custom Arrow Icon for Select */}
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
+
+                        {/* Create Playlist Button (Only active on Live Data) */}
+                        <button
+                            onClick={handleCreatePlaylist}
+                            disabled={isCreatingPlaylist || tracks.length === 0 || selectedHistoryId !== ''}
+                            className={`bg-blue-500 text-white font-bold py-2 px-6 rounded-full transition-colors 
+                                ${selectedHistoryId !== '' 
+                                    ? 'bg-gray-600 opacity-50 cursor-not-allowed' // Disabled if viewing history
+                                    : 'hover:bg-blue-600'
+                                }`}
+                        >
+                            {isCreatingPlaylist ? 'Saving...' : 'Create Playlist'}
+                        </button>
+                    </div>
                 </div>
 
                 {playlistUrl && (
@@ -154,10 +218,12 @@ export default function TopTracksPage() {
 
                 <main>
                     {isLoading ? (
-                        <div className="text-center py-10 text-gray-400">Loading your top tracks...</div>
+                        <div className="text-center py-10 text-gray-400">
+                            {selectedHistoryId ? 'Loading history...' : 'Loading live tracks...'}
+                        </div>
                     ) : (
                         <div className="space-y-2">
-                            {tracks.map((track) => (
+                            {tracks.length > 0 ? tracks.map((track) => (
                                 <div key={track.id} className="flex items-center p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
                                     <div className="w-8 text-center text-lg">
                                         {track.rankChange === 'up' && <span className="text-green-500">↑</span>}
@@ -177,7 +243,11 @@ export default function TopTracksPage() {
                                         </svg>
                                     </a>
                                 </div>
-                            ))}
+                            )) : (
+                                <div className="text-center py-10 text-gray-500">
+                                    No tracks found.
+                                </div>
+                            )}
                         </div>
                     )}
                 </main>

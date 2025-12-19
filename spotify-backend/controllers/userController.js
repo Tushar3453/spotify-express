@@ -80,9 +80,33 @@ exports.getTopGenres = async (req, res) => {
 
 exports.getTopTracks = async (req, res) => {
     const accessToken = req.userToken;
-    const { time_range = 'medium_term' } = req.query;
+    const { time_range = 'medium_term', historyId } = req.query;
     const redisClient = req.redisClient;
 
+    // if history id is present
+    if (historyId) {
+        try {
+            const historicalData = await UserTopTracks.findById(historyId);
+            if (!historicalData) {
+                return res.status(404).json({ error: 'History record not found' });
+            }
+            const formattedTracks = historicalData.tracks.map(t => ({
+                id: t.trackId,
+                name: t.name,
+                rank: t.rank,
+                artist: t.artist,
+                albumArt: t.albumArt,
+                spotifyUrl: `https://open.spotify.com/track/${t.trackId}`,
+                rankChange: 'same' //default     
+            }));
+            return res.status(200).json(formattedTracks);
+        } catch (e) {
+            console.error('Error fetching history:', e);
+            return res.status(500).json({ error: 'Error fetching history data' });
+        }
+    }
+
+    // default  
     let userId;
     try {
         const profile = await getUserProfile(accessToken);
@@ -100,19 +124,18 @@ exports.getTopTracks = async (req, res) => {
             console.log('CACHE HIT:', cacheKey);
             return res.status(200).json(JSON.parse(cachedValue));
         }
-
         console.log('CACHE MISS:', cacheKey);
 
         const previousEntry = await UserTopTracks.findOne({
             userId,
             timeRange: time_range
-        });
+        }).sort({ lastUpdated: -1 });
 
         const previousRanks = previousEntry
             ? previousEntry.tracks.reduce((map, track) => {
-                  map.set(track.trackId, track.rank);
-                  return map;
-              }, new Map())
+                map.set(track.trackId, track.rank);
+                return map;
+            }, new Map())
             : new Map();
 
         const endpoint = 'https://api.spotify.com/v1/me/top/tracks';
@@ -147,6 +170,7 @@ exports.getTopTracks = async (req, res) => {
             };
         });
 
+
         await redisClient.setEx(cacheKey, 3600, JSON.stringify(tracks));
         console.log('CACHE SET:', cacheKey);
 
@@ -159,5 +183,27 @@ exports.getTopTracks = async (req, res) => {
         return res
             .status(500)
             .json({ error: 'Error occured while fetching top tracks.' });
+    }
+};
+
+exports.getTrackHistoryDates = async (req, res) => {
+    const accessToken = req.userToken;
+    const { time_range = 'medium_term' } = req.query;
+
+    try {
+        // get user id
+        const profile = await getUserProfile(accessToken);
+        const userId = profile.id;
+
+        // get dates and id from db
+        const history = await UserTopTracks.find(
+            { userId, timeRange: time_range },
+            { lastUpdated: 1, _id: 1 }
+        ).sort({ lastUpdated: -1 });
+
+        return res.status(200).json(history);
+    } catch (error) {
+        console.error('Error fetching history dates:', error.message);
+        return res.status(500).json({ error: 'Failed to fetch history dates' });
     }
 };

@@ -3,36 +3,35 @@ const UserTopTracks = require('../models/UserTopTracks');
 
 exports.createPlaylist = async (req, res) => {
     const userAccessToken = req.userToken;
-    const { tracks, timeRange } = req.body; // fetching tracks from frontend
+    const { tracks, timeRange } = req.body; 
 
     if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
         return res.status(400).json({ error: 'An array of tracks is required.' });
     }
 
     try {
-        // 1. Fetching user id (Fixed URL)
+        // 1. Fetching user id
         const { data: userProfile } = await axios.get('https://api.spotify.com/v1/me', {
             headers: { 'Authorization': `Bearer ${userAccessToken}` }
         });
         const userId = userProfile.id;
 
-        // 2. Updating tracks in database
+        // 2. Saving Snapshot in Database
         try {
-            await UserTopTracks.findOneAndUpdate(
-                { userId: userId, timeRange: timeRange }, 
-                { 
-                    tracks: tracks.map(t => ({
-                        trackId: t.id,       
-                        name: t.name,
-                        rank: t.rank,
-                        artist: t.artist,     
-                        albumArt: t.albumArt  
-                    })),
-                    lastUpdated: Date.now() 
-                },
-                { upsert: true, new: true } // make a new document if not available
-            );
-            console.log('User top tracks saved to MongoDB successfully.');
+            await UserTopTracks.collection.dropIndex('userId_1_timeRange_1').catch(() => {});
+            await UserTopTracks.create({
+                userId: userId,
+                timeRange: timeRange,
+                tracks: tracks.map(t => ({
+                    trackId: t.id,       
+                    name: t.name,
+                    rank: t.rank,
+                    artist: t.artist,     
+                    albumArt: t.albumArt  
+                })),
+                lastUpdated: Date.now() 
+            });
+            console.log('User top tracks snapshot saved to MongoDB.');
 
         } catch (dbError) {
             console.error("Could not save tracks to MongoDB:", dbError.message);
@@ -49,9 +48,9 @@ exports.createPlaylist = async (req, res) => {
         const playlistName = `My Top Tracks ${date} (${titleRangeText})`;
         const description = `Your favorite tracks ${descriptionRangeText}. Created by SoundSphere.`;
 
-        // 3. Create Playlist on Spotify 
+        // 3. Create Playlist on Spotify
         const { data: newPlaylist } = await axios.post(
-            `https://api.spotify.com/v1/users/${userId}/playlists`,
+            `https://api.spotify.com/v1/users/${userId}/playlists`, 
             { name: playlistName, description, public: false },
             { headers: { 'Authorization': `Bearer ${userAccessToken}` } }
         );
@@ -59,18 +58,18 @@ exports.createPlaylist = async (req, res) => {
         // 4. Add Tracks to Playlist 
         const trackUris = tracks.map(track => `spotify:track:${track.id}`);
         await axios.post(
-            `https://api.spotify.com/v1/playlists/${newPlaylist.id}/tracks`,
+            `https://api.spotify.com/v1/playlists/${newPlaylist.id}/tracks`, // Added $ before newPlaylist.id
             { uris: trackUris },
             { headers: { 'Authorization': `Bearer ${userAccessToken}` } }
         );
 
-        //WEB SOCKET
+        // WEB SOCKET
         if (req.io) {
             req.io.emit('playlist_created', {
-                message: ` New Playlist Created: "${playlistName}"`,
+                message: `New Playlist Created: "${playlistName}"`,
                 link: newPlaylist.external_urls.spotify
             });
-            console.log("Socket event 'playlist_created' emitted to all clients.");
+            console.log("Socket event 'playlist_created' emitted.");
         }
 
         res.status(201).json({

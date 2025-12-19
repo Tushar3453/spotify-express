@@ -14,6 +14,7 @@ router.get('/top-artists', protect, userController.getTopArtists);
 router.get('/top-genres', protect, userController.getTopGenres);
 router.get('/top-tracks', protect, userController.getTopTracks);
 router.post('/create-playlist', protect, playlistController.createPlaylist);
+router.get('/top-tracks/history-dates', protect, userController.getTrackHistoryDates);
 
 
 module.exports = router;

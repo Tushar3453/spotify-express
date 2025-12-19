@@ -38,7 +38,7 @@ const UserTopTracksSchema = new mongoose.Schema({
   },
 });
 
-UserTopTracksSchema.index({ userId: 1, timeRange: 1 }, { unique: true });
+UserTopTracksSchema.index({ userId: 1, timeRange: 1, lastUpdated: -1 });
 
 const UserTopTracks = mongoose.model("UserTopTracks", UserTopTracksSchema);
 module.exports = UserTopTracks;
